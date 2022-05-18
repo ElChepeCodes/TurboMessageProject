@@ -111,11 +111,34 @@ public class User implements Serializable {
                 chats.get(chats.size() - 1).add(msg); // add initial msg to chat
             }//if
             if(flag){ // send updateStatus to sender
-                MessageUpdate msgUpdate = new MessageUpdate(msg, 2);
                 sendUpdateMsgStatus(msg, 2);
             }//if
             respondRequest(sender, msg, accept);
         }//else
+    }//method
+
+    public void sendUpdateMsgStatus(Msg msg, int status){
+        MessageProducer messageProducer;
+        ObjectMessage objectMessage;
+        MessageUpdate update = new MessageUpdate(msg, status);
+        try {
+
+            ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
+            Connection connection = connectionFactory.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false /*Transacter*/, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(msg.getSender().key);
+            messageProducer = session.createProducer(destination);
+            objectMessage = session.createObjectMessage(update);
+
+            //System.out.println("Sending the following message: " + objectMessage.getObject().toString());
+            messageProducer.send(objectMessage);
+        }
+        catch (Exception exception){
+            exception.printStackTrace();
+        }//catch
+
     }//method
 
     public void respondRequest(User target, Msg msg, boolean response){
