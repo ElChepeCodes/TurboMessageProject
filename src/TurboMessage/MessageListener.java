@@ -26,16 +26,16 @@ public class MessageListener extends Thread{
             MessageConsumer messageConsumer = session.createConsumer(destination);
 
             while (true) {
-                System.out.println("Waiting for messages...");
+                //System.out.println("Waiting for messages...");
                 ObjectMessage objectMessage = (ObjectMessage) messageConsumer.receive();
                 if (objectMessage != null) {
-                    System.out.println(objectMessage.toString());
+                    //System.out.println(objectMessage.toString());
                     //System.out.print("Received the following message: ");
                     Object obj = objectMessage.getObject();
                     if(obj instanceof Msg) { //se recibió un mensaje normal
                         Msg msg = (Msg) obj;
-                        System.out.println(msg.getMsg());
-                        System.out.println();
+                        //System.out.println(msg.getMsg());
+                        //System.out.println();
                         user.receiveMessage(msg);
                     }//if
                     else{
@@ -55,7 +55,7 @@ public class MessageListener extends Thread{
                                 }//else
                             }//if
                             else{ // this shouldn't happen
-                                System.out.printf("idk what's happening *panics*");
+                                System.out.println("idk what's happening *panics*");
                             }//else
                         }//else
                     }//else

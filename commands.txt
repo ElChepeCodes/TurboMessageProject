@@ -1,0 +1,8 @@
+?help_Mostrar todos los comandos disponibles
+?chats_Mostrar todos los chats existentes
+?contacts_Mostrar lista de contactos
+?msg 'UserKey'_Enviar un mensaje al usuario con la key proporcionada
+?chat 'UserName'_Abrir el chat con la persona especificada
+?up_Subir Una página en la lista que se esté desplegando (mensajes, usuarios, etc.)
+?down_Bajar una página en la lista que se esté desplegando (mensajes, usuarios, etc.)
+?setPg 'ObjCount'_Establecer el número de objetos mostrados de una lista por página

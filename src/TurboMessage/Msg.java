@@ -9,7 +9,7 @@ public class Msg implements Serializable {
     private int id;
     private String msg;
     private User sender, target;
-    private Date date;
+    private Date dateSent, dateReceived, dateRead;
     private int status; // 0-sending, 1-sent, 2-received, 3-read
     private boolean friendRequest;
 
@@ -18,7 +18,7 @@ public class Msg implements Serializable {
         this.msg = msg;
         this.sender = sender;
         this.target = target;
-        date = new Date();
+        dateSent = new Date();
         status = 0;
         friendRequest = false;
     }//builder
@@ -33,8 +33,24 @@ public class Msg implements Serializable {
         return msg;
     }
 
-    public Date getDate() {
-        return date;
+    public Date getDateSent() {
+        return dateSent;
+    }
+
+    public Date getDateReceived() {
+        return dateReceived;
+    }
+
+    public Date getDateRead() {
+        return dateRead;
+    }
+
+    public void setDateReceived(Date dateReceived) {
+        this.dateReceived = dateReceived;
+    }
+
+    public void setDateRead(Date dateRead) {
+        this.dateRead = dateRead;
     }
 
     public int getStatus() {
@@ -59,12 +75,13 @@ public class Msg implements Serializable {
 
     @Override
     public String toString() {
-        return "Message{" +
-                "msg='" + msg + '\'' +
-                ", sender=" + sender +
-                ", target=" + target +
-                ", date=" + date +
-                ", status=" + status +
-                '}';
+        String res = msg;
+        if(getDateRead() != null)
+            res += " ---(Read: " + getDateRead() + ")";
+        else if(getDateReceived() != null)
+            res += " ---(Received: " + getDateReceived() + ")";
+        else
+            res += " ---(Sent: " + getDateSent() + ")";
+        return res;
     }
 }//class

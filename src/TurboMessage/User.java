@@ -2,7 +2,6 @@ package TurboMessage;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
-import org.jetbrains.annotations.NotNull;
 
 import javax.jms.*;
 import java.io.Serializable;
@@ -31,12 +30,21 @@ public class User implements Serializable {
         chats = new ArrayList<ArrayList<Msg>>();
     }//builder
 
+    public User(String name, int num){
+        this.name = name;
+        key = name + "#" + num;
+    }//builder
+
     public String getKey() {
         return key;
     }
 
     public String getName() {
         return name;
+    }
+
+    public ArrayList<User> getContacts(){
+        return contacts;
     }
 
     public ArrayList<Msg> getChat(User target){
@@ -53,7 +61,7 @@ public class User implements Serializable {
         return key.equals(user.key) && name.equals(user.name);
     }
 
-    public void addChat(@NotNull User target){
+    public void addChat(User target){
         contacts.add(target);
         chats.add(new ArrayList<Msg>());
     }//method
@@ -96,6 +104,7 @@ public class User implements Serializable {
             msg.updateStatus(2);
             flag = true;
             chats.get(index).add(msg);
+            System.out.println("Recibiste un nuevo mensaje de " +msg.getSender().getName() + "\nVe a tus chats para leerlo");
         }//if
         else{ // sender is not a contact yet
             Scanner scanner = new Scanner(System.in);
@@ -103,12 +112,13 @@ public class User implements Serializable {
             System.out.println("¿Acepta? (Y/N)");
             String res = scanner.next();
             boolean accept = res.equalsIgnoreCase("Y");
-            System.out.println(accept);
+            //System.out.println(accept);
             if(accept){ // message request accepted
                 addChat(sender);
                 msg.updateStatus(2);
                 flag = true;
                 chats.get(chats.size() - 1).add(msg); // add initial msg to chat
+                displayChat(sender);
             }//if
             if(flag){ // send updateStatus to sender
                 sendUpdateMsgStatus(msg, 2);
@@ -145,7 +155,7 @@ public class User implements Serializable {
         MessageProducer messageProducer;
         ObjectMessage objectMessage;
         try {
-            RequestResponse rR = new RequestResponse(target, msg, response);
+            RequestResponse rR = new RequestResponse(this, target, msg, response);
             ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
             Connection connection = connectionFactory.createConnection();
             connection.start();
@@ -209,5 +219,19 @@ public class User implements Serializable {
         }//catch
     }//method
 
+    // methods to display console ui
+    public void displayChat(User target){
+
+    }//method
+
+    public void displayContacts(){
+        System.out.println("Para abrir algún chat usa el comando '?chat' seguido del nombre de la persona con quien quieres chatear");
+        System.out.println("Ejemplo: '?chat Juan' para chatear con Juan");
+        System.out.println("Contactos:");
+        String currentChatDisplay = "";
+        for(int i = 0; i < contacts.size(); i++){
+            currentChatDisplay = contacts.get(i).name + ": ";
+        }//method
+    }//method
 
 }//class
