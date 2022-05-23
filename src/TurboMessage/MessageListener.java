@@ -51,6 +51,7 @@ public class MessageListener extends Thread{
                                     user.readAll(msg);
                                 }//if
                                 else{ // sender hasn't read conversation
+                                    System.out.println("no es readAll");
                                     user.updateMsgStatus(msg, update.getNewStatus());
                                 }//else
                             }//if

@@ -2,6 +2,7 @@ package TurboMessage;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
 public class Msg implements Serializable {
 
@@ -10,6 +11,20 @@ public class Msg implements Serializable {
     private String msg;
     private User sender, target;
     private Date dateSent, dateReceived, dateRead;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Msg msg = (Msg) o;
+        return Objects.equals(sender, msg.sender) && Objects.equals(target, msg.target) && Objects.equals(dateSent, msg.dateSent);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sender, target, dateSent);
+    }
+
     private int status; // 0-sending, 1-sent, 2-received, 3-read
     private boolean friendRequest;
 

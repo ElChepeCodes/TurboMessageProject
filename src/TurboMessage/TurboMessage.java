@@ -77,7 +77,7 @@ public class TurboMessage {
                 user.displayChat(lineSplit[1], objCount);
             }//try
             catch (Exception e){
-                e.printStackTrace();
+                //e.printStackTrace();
                 System.out.println("Lo siento, no encontré un chat con esa persona");
             }//catch
         }//if

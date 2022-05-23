@@ -4,7 +4,7 @@ import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
 
 import javax.jms.*;
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 import java.util.Queue;
 
@@ -26,6 +26,7 @@ public class User implements Serializable {
         contacts = new ArrayList<User>();
         requests = new ArrayList<Msg>();
         chats = new ArrayList<ArrayList<Msg>>();
+        initializeContactFile();
     }//builder
 
     public User(String name, int num){
@@ -49,6 +50,27 @@ public class User implements Serializable {
     public ArrayList<Msg> getChat(User target){
         int index = contacts.indexOf(target);
         return chats.get(index);
+    }//method
+
+    public void initializeContactFile(){
+        try{
+            File contactsFile = new File(name + "Contacts.txt");
+            contactsFile.createNewFile();
+            Scanner fileScanner = new Scanner(contactsFile);
+            String currentLine;
+            String [] splitLine;
+            while(fileScanner.hasNextLine()){
+                currentLine = fileScanner.nextLine();
+                if(currentLine!="") {
+                    splitLine = currentLine.split("#");
+                    contacts.add(new User(splitLine[0], Integer.parseInt(splitLine[1])));
+                    chats.add(new ArrayList<Msg>());
+                }//if
+            }//while
+        }//try
+        catch (Exception e){
+            e.printStackTrace();
+        }//catch
     }//method
 
     public User searchContact(String name){
@@ -101,6 +123,9 @@ public class User implements Serializable {
             if(index < 0){ // user not in contact list, so we wait for target to accept or decline messaging us
                 requests.add(msg);
             }//if
+            else{
+                chats.get(index).add(msg);
+            }//else
         }
         catch (Exception exception){
             exception.printStackTrace();
@@ -117,6 +142,7 @@ public class User implements Serializable {
             flag = true;
             chats.get(index).add(msg);
             System.out.println("Recibiste un nuevo mensaje de " +msg.getSender().getName());
+            sendUpdateMsgStatus(msg, 2);
         }//if
         else{ // sender is not a contact yet
             System.out.println(msg.getSender().name + " le quiere enviar un mensaje");
@@ -137,7 +163,7 @@ public class User implements Serializable {
     public void denyRequest(){
         Msg msg = requests.remove(0);
         User sender = msg.getSender();
-        respondRequest(sender, msg, true);
+        respondRequest(sender, msg, false);
 
     }//method
 
@@ -156,7 +182,7 @@ public class User implements Serializable {
             messageProducer = session.createProducer(destination);
             objectMessage = session.createObjectMessage(update);
 
-            //System.out.println("Sending the following message: " + objectMessage.getObject().toString());
+            System.out.println("Sending msg update " );
             messageProducer.send(objectMessage);
         }
         catch (Exception exception){
@@ -165,15 +191,41 @@ public class User implements Serializable {
 
     }//method
 
+    public void sendReadAll(Msg msg){
+        MessageProducer messageProducer;
+        ObjectMessage objectMessage;
+        MessageUpdate update = new MessageUpdate(msg);
+        try {
+
+            ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
+            Connection connection = connectionFactory.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false /*Transacter*/, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(msg.getSender().key);
+            messageProducer = session.createProducer(destination);
+            objectMessage = session.createObjectMessage(update);
+
+            //System.out.println("Sending the following message: " + objectMessage.getObject().toString());
+            messageProducer.send(objectMessage);
+        }
+        catch (Exception exception){
+            exception.printStackTrace();
+        }//catch
+    }//method
+
     public void respondRequest(User target, Msg msg, boolean response){
         MessageProducer messageProducer;
         ObjectMessage objectMessage;
         if(response){ // target wants to chat with us :)
             System.out.println("Aceptaste la solicitud de " + target.name);
             contacts.add(target);
+            saveContact(target);
             chats.add(new ArrayList<Msg>());
             chats.get(chats.size() - 1).add(msg);
         }//if
+        else
+            System.out.println("Rechazaste la solicitud de " + target.name);
         try {
             RequestResponse rR = new RequestResponse(this, target, msg, response);
             ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
@@ -199,9 +251,11 @@ public class User implements Serializable {
         User target = response.getSender();
         boolean res = response.getResponse();
         Msg msg = response.getMsg();
+        msg.updateStatus(2);
         if(res){ // target wants to chat with us :)
             System.out.println(target.name + " aceptó su solicitud de mensaje");
             contacts.add(target);
+            saveContact(target);
             chats.add(new ArrayList<Msg>());
             chats.get(chats.size() - 1).add(msg);
         }//if
@@ -209,6 +263,22 @@ public class User implements Serializable {
             System.out.println(target.name + " rechazó su solicitud de mensaje");
         }//else
         requests.remove(msg);
+    }//method
+
+    public void saveContact(User contact){
+        try{
+            File contactsFile = new File(name + "Contacts.txt");
+            contactsFile.createNewFile();
+            FileWriter fw = new FileWriter(contactsFile, true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            System.out.println("dentro saveContact");
+            bw.write(contact.key);
+            bw.newLine();
+            bw.close();
+        }//try
+        catch (Exception e){
+            e.printStackTrace();
+        }//catch
     }//method
 
     public void readAll(Msg msg){
@@ -219,20 +289,24 @@ public class User implements Serializable {
         ArrayList<Msg> chat = chats.get(chatIndex);
         Date readDate = new Date();
         i = chat.indexOf(msg);
-        while(i >= 0 && chat.get(i).getStatus() != 3){
-            chat.get(i).updateStatus(3);
+        while(i >= 0 && chat.get(i).getStatus() != 3 && chat.get(i).getSender()!=this){
             chat.get(i).setDateRead(readDate);
+            sendUpdateMsgStatus(msg,3);
+            chat.get(i).updateStatus(3);
             i--;
         }//while
     }//method
 
     public void updateMsgStatus(Msg msg, int newStatus){
+        System.out.println("newstatus" + newStatus);
         User target = msg.getTarget();
         int chatIndex = contacts.indexOf(target);
         ArrayList<Msg> chat = chats.get(chatIndex);
         Date date = new Date();
         if(newStatus == 2)
-            msg.setDateReceived(date);
+            chat.get(chat.indexOf(msg)).setDateReceived(date);
+        else if(newStatus == 3)
+            chat.get(chat.indexOf(msg)).setDateRead(date);
         chat.get(chat.indexOf(msg)).updateStatus(newStatus);
     }//method
 
@@ -287,7 +361,7 @@ public class User implements Serializable {
     }//method
 
     public void displayChats(){
-
+        System.out.println("Esta función aún no está implementada");
     }//method
 
     public void displayContacts(){
