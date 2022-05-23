@@ -61,7 +61,7 @@ public class User implements Serializable {
             String [] splitLine;
             while(fileScanner.hasNextLine()){
                 currentLine = fileScanner.nextLine();
-                if(currentLine!="") {
+                if(currentLine.contains("#")) {
                     splitLine = currentLine.split("#");
                     contacts.add(new User(splitLine[0], Integer.parseInt(splitLine[1])));
                     chats.add(new ArrayList<Msg>());
