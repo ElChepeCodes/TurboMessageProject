@@ -10,6 +10,7 @@ public class TurboMessage {
     private final User user;
     private User currentChatter;
     private final Command [] commands;
+    private Scanner scanner;
 
     public TurboMessage(User user){
         this.user = user;
@@ -51,7 +52,14 @@ public class TurboMessage {
             return true;
         if(command.equals("?help")) // help command
             sendHelp();
-        else if(command.equals(""))
+        else if(command.equals("?chats"))
+            user.displayChats();
+        else if(command.equals("?contacts"))
+            user.displayContacts();
+        else if(command.equals("?up"))
+            System.out.println("Aún no se implementa esta funcionalidad");
+        else if(command.equals("?down"))
+            System.out.println("Aún no se implementa esta funcionalidad");
         else if(command.contains("?setPg")){ // set new page count command
             try{
                 lineSplit = command.split(" ");
@@ -61,6 +69,30 @@ public class TurboMessage {
             catch (Exception e){
                 System.out.println("Lo siento, no entendí lo que me pediste, un ejemplo de este comando es");
                 System.out.println("?setPg 20");
+            }//catch
+        }//if
+        else if(command.contains("?chat")){ // set new page count command
+            try{
+                lineSplit = command.split(" ");
+                user.displayChat(lineSplit[1], objCount);
+            }//try
+            catch (Exception e){
+                e.printStackTrace();
+                System.out.println("Lo siento, no encontré un chat con esa persona");
+            }//catch
+        }//if
+        else if(command.contains("?msg")){ // set new page count command
+            try{
+                lineSplit = command.split(" ");
+                lineSplit = lineSplit[1].split("#"); // extract target name and number
+                User target = new User(lineSplit[0], Integer.parseInt(lineSplit[1]));
+                System.out.println("Escribe el mensaje que le quieres enviar a " + lineSplit[0]);
+                Scanner scanner = new Scanner(System.in);
+                user.sendMessage(scanner.nextLine(), target);
+                System.out.println("Se envió tu mensaje exitosamente ");
+            }//try
+            catch (Exception e){
+                System.out.println("Surgió un error al enviar tu mensaje");
             }//catch
         }//if
         return false;
@@ -84,6 +116,7 @@ public class TurboMessage {
             user.displayContacts();
             currentStatus = 1;
         }//else
+        user.startListening();
         boolean exit = false;
         String nextLine;
         while(!exit){
@@ -91,6 +124,11 @@ public class TurboMessage {
             if(nextLine.indexOf('?') == 0){
                 exit = processCommand(nextLine);
             }//if
+            if(nextLine.equalsIgnoreCase("y") || nextLine.equalsIgnoreCase("n"))
+                if (nextLine.equalsIgnoreCase("y"))
+                    user.acceptRequest();
+                else
+                    user.denyRequest();
         }//while
     }//method
 

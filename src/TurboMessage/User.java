@@ -5,28 +5,26 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 
 import javax.jms.*;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
+import java.util.Queue;
 
 
 public class User implements Serializable {
-    private static String url = ActiveMQConnection.DEFAULT_BROKER_URL;
+    private final static String url = ActiveMQConnection.DEFAULT_BROKER_URL;
 
     private static int userCount = 1;
-    private String key;
-    private String name;
+    private final String key;
+    private final String name;
     private ArrayList<User> contacts;
     private ArrayList<ArrayList<Msg>> chats;
-    private Set<User> requests;
+    private ArrayList<Msg> requests;
 
     public User(String name){
         this.name = name;
         key = name + "#" + userCount;
         userCount++;
         contacts = new ArrayList<User>();
-        requests = new HashSet<User>();
+        requests = new ArrayList<Msg>();
         chats = new ArrayList<ArrayList<Msg>>();
     }//builder
 
@@ -47,11 +45,25 @@ public class User implements Serializable {
         return contacts;
     }
 
+
     public ArrayList<Msg> getChat(User target){
         int index = contacts.indexOf(target);
         return chats.get(index);
     }//method
 
+    public User searchContact(String name){
+        if(contacts.size() == 0) {
+            return null;
+        }
+        int i = 0;
+        User current = contacts.get(i);
+        while(i < contacts.size() && !current.getName().equals(name))
+            current = contacts.get(i++);
+        if (i >= contacts.size()) {
+            return null;
+        }
+        return current;
+    }//method
 
     @Override
     public boolean equals(Object o) {
@@ -87,7 +99,7 @@ public class User implements Serializable {
             // update msg status to sent
             msg.updateStatus(1);
             if(index < 0){ // user not in contact list, so we wait for target to accept or decline messaging us
-                requests.add(target);
+                requests.add(msg);
             }//if
         }
         catch (Exception exception){
@@ -104,27 +116,29 @@ public class User implements Serializable {
             msg.updateStatus(2);
             flag = true;
             chats.get(index).add(msg);
-            System.out.println("Recibiste un nuevo mensaje de " +msg.getSender().getName() + "\nVe a tus chats para leerlo");
+            System.out.println("Recibiste un nuevo mensaje de " +msg.getSender().getName());
         }//if
         else{ // sender is not a contact yet
-            Scanner scanner = new Scanner(System.in);
             System.out.println(msg.getSender().name + " le quiere enviar un mensaje");
             System.out.println("¿Acepta? (Y/N)");
-            String res = scanner.next();
-            boolean accept = res.equalsIgnoreCase("Y");
+            requests.add(msg);
             //System.out.println(accept);
-            if(accept){ // message request accepted
-                addChat(sender);
-                msg.updateStatus(2);
-                flag = true;
-                chats.get(chats.size() - 1).add(msg); // add initial msg to chat
-                displayChat(sender);
-            }//if
-            if(flag){ // send updateStatus to sender
-                sendUpdateMsgStatus(msg, 2);
-            }//if
-            respondRequest(sender, msg, accept);
         }//else
+    }//method
+
+
+    public void acceptRequest(){
+        Msg msg = requests.remove(0);
+        msg.updateStatus(2);
+        User sender = msg.getSender();
+        respondRequest(sender, msg, true);
+    }//method
+
+    public void denyRequest(){
+        Msg msg = requests.remove(0);
+        User sender = msg.getSender();
+        respondRequest(sender, msg, true);
+
     }//method
 
     public void sendUpdateMsgStatus(Msg msg, int status){
@@ -154,6 +168,12 @@ public class User implements Serializable {
     public void respondRequest(User target, Msg msg, boolean response){
         MessageProducer messageProducer;
         ObjectMessage objectMessage;
+        if(response){ // target wants to chat with us :)
+            System.out.println("Aceptaste la solicitud de " + target.name);
+            contacts.add(target);
+            chats.add(new ArrayList<Msg>());
+            chats.get(chats.size() - 1).add(msg);
+        }//if
         try {
             RequestResponse rR = new RequestResponse(this, target, msg, response);
             ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(url);
@@ -178,9 +198,9 @@ public class User implements Serializable {
     public void receiveRequestResponse(RequestResponse response){
         User target = response.getSender();
         boolean res = response.getResponse();
+        Msg msg = response.getMsg();
         if(res){ // target wants to chat with us :)
             System.out.println(target.name + " aceptó su solicitud de mensaje");
-            Msg msg = response.getMsg();
             contacts.add(target);
             chats.add(new ArrayList<Msg>());
             chats.get(chats.size() - 1).add(msg);
@@ -188,16 +208,20 @@ public class User implements Serializable {
         else{ // target doesn't want to chat with us :(
             System.out.println(target.name + " rechazó su solicitud de mensaje");
         }//else
-        requests.remove(target);
+        requests.remove(msg);
     }//method
 
     public void readAll(Msg msg){
-        User target = msg.getTarget();
+        User target = msg.getSender();
         int chatIndex = contacts.indexOf(target), i;
+        if(chatIndex < 0)
+            return;
         ArrayList<Msg> chat = chats.get(chatIndex);
+        Date readDate = new Date();
         i = chat.indexOf(msg);
         while(i >= 0 && chat.get(i).getStatus() != 3){
             chat.get(i).updateStatus(3);
+            chat.get(i).setDateRead(readDate);
             i--;
         }//while
     }//method
@@ -206,6 +230,9 @@ public class User implements Serializable {
         User target = msg.getTarget();
         int chatIndex = contacts.indexOf(target);
         ArrayList<Msg> chat = chats.get(chatIndex);
+        Date date = new Date();
+        if(newStatus == 2)
+            msg.setDateReceived(date);
         chat.get(chat.indexOf(msg)).updateStatus(newStatus);
     }//method
 
@@ -219,8 +246,47 @@ public class User implements Serializable {
         }//catch
     }//method
 
+    @Override
+    public String toString() {
+        return "User{" +
+                "key='" + key + '\'' +
+                ", name='" + name + '\'' +
+                '}';
+    }
+
     // methods to display console ui
-    public void displayChat(User target){
+    public void displayChat(String targetName, int objCount){
+        User target = searchContact(targetName);
+        Msg lastMsg = getLastMsgFromSender(target);
+        String currentMsg = "";
+        if(lastMsg!= null)
+            readAll(lastMsg);
+        int chatIndex = contacts.indexOf(target) ,index = Math.max(0, chats.get(chatIndex).size()-objCount);
+        for(Msg msg: chats.get(chatIndex)){
+            if(msg.getSender().equals(this))
+                currentMsg = "You: ";
+            else
+                currentMsg = msg.getSender().getName() + ": ";
+            currentMsg += msg.toString();
+            System.out.println(currentMsg);
+        }//for
+    }//method
+
+    public Msg getLastMsgFromSender(User target){
+        int j = 0 , i = 1;
+        while(j < contacts.size() && !contacts.get(j).getName().equals(target.getName()))
+            j++;
+        if(j == contacts.size())
+            return null;
+        ArrayList<Msg> chat = chats.get(j);
+        if(chat.size() == 0)
+            return null;
+        while(i < chat.size() && chat.get(chat.size()-i).getSender().equals(this))
+            i++;
+        return chat.get(chat.size()-(i));
+    }//method
+
+    public void displayChats(){
 
     }//method
 
@@ -229,8 +295,9 @@ public class User implements Serializable {
         System.out.println("Ejemplo: '?chat Juan' para chatear con Juan");
         System.out.println("Contactos:");
         String currentChatDisplay = "";
-        for(int i = 0; i < contacts.size(); i++){
-            currentChatDisplay = contacts.get(i).name + ": ";
+
+        for (User contact : contacts) {
+            System.out.println(contact);
         }//method
     }//method
 
